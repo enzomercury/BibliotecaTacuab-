@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Biblioteca del Liceo</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <header class="site-header">
+    <h1>📚 Biblioteca del Liceo</h1>
+    <p class="subtitle">Gestión simple: búsqueda, préstamos y devoluciones.</p>
+  </header>
+
+  <main>
+    <!-- 1) BÚSQUEDA (PRIMERA Y PRINCIPAL) -->
+    <section class="card emphasis">
+      <h2>Buscar libros</h2>
+      <div class="filters">
+        <input id="q" type="search" class="search-lg" placeholder="Escribe título, autor o categoría…"/>
+        <select id="statusFilter" title="Estado">
+          <option value="all">Todos</option>
+          <option value="available">Disponibles</option>
+          <option value="loaned">Prestados</option>
+          <option value="overdue">Vencidos</option>
+        </select>
+        <button id="clearAll">🧹 Limpiar</button>
+      </div>
+    </section>
+
+    <!-- 2) AGREGAR LIBRO (ARRIBA DEL CATÁLOGO) -->
+    <section class="card">
+      <h2>Agregar libro</h2>
+      <form id="addBookForm">
+        <div class="grid">
+          <label>Título
+            <input type="text" id="title" required placeholder="Ej: Cien años de soledad"/>
+          </label>
+          <label>Autor
+            <input type="text" id="author" required placeholder="Ej: Gabriel García Márquez"/>
+          </label>
+          <label>Categoría
+            <input type="text" id="category" required placeholder="Ej: Novela"/>
+          </label>
+        </div>
+        <button type="submit">➕ Agregar</button>
+      </form>
+    </section>
+
+    <!-- 3) CATÁLOGO -->
+    <section class="card">
+      <div class="tableHeader">
+        <h2>Catálogo</h2>
+        <div class="actions">
+          <button id="printBtn" title="Imprimir inventario">🖨️ Imprimir</button>
+          <button id="exportCsv">⬇️ CSV</button>
+          <button id="exportJson">⬇️ JSON</button>
+          <label class="importBtn">⬆️ Importar JSON
+            <input id="importJson" type="file" accept="application/json" hidden/>
+          </label>
+          <button id="resetData" class="danger" title="Borrar todos los datos locales">🗑️ Reset</button>
+        </div>
+      </div>
+
+      <div class="responsiveTable">
+        <table id="booksTable" aria-describedby="Tabla de libros">
+          <thead>
+            <tr>
+              <th style="width:28%">Título</th>
+              <th style="width:24%">Autor</th>
+              <th style="width:18%">Categoría</th>
+              <th style="width:15%">Estado</th>
+              <th style="width:15%">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="booksTbody"></tbody>
+        </table>
+      </div>
+      <p id="emptyState" class="muted" hidden>No hay libros cargados todavía.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <small>Desarrollado por 9°B Ciencias de la Computación · Prof. Enzo Román · Año 2025</small>
+  </footer>
+
+  <!-- Modal: Préstamo -->
+  <dialog id="loanDialog">
+    <form method="dialog" id="loanForm">
+      <h3>Registrar préstamo</h3>
+      <p id="loanBookTitle" class="muted"></p>
+      <label>Nombre y apellido de quien recibe:
+        <input type="text" id="borrower" required placeholder="Ej: Ana Pérez"/>
+      </label>
+      <label>Fecha pactada de devolución (opcional):
+        <input type="date" id="dueDate"/>
+      </label>
+      <label>Observaciones (opcional):
+        <input type="text" id="notes" placeholder="Curso, teléfono, etc."/>
+      </label>
+      <menu>
+        <button value="cancel">Cancelar</button>
+        <button id="confirmLoan" value="default">Confirmar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Modal: Editar libro -->
+  <dialog id="editDialog">
+    <form method="dialog" id="editForm">
+      <h3>Editar libro</h3>
+      <input type="hidden" id="editId"/>
+      <label>Título
+        <input type="text" id="editTitle" required/>
+      </label>
+      <label>Autor
+        <input type="text" id="editAuthor" required/>
+      </label>
+      <label>Categoría
+        <input type="text" id="editCategory" required/>
+      </label>
+      <menu>
+        <button value="cancel">Cancelar</button>
+        <button id="confirmEdit" value="default">Guardar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
