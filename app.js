@@ -179,3 +179,205 @@ function filteredBooks() {
 }
 
 function isOverdue(dueDateStr) {
+  if (!dueDateStr) return false;
+  const today = new Date();
+  const due = new Date(dueDateStr + "T23:59:59");
+  return today > due;
+}
+
+function formatDate(isoYMD) {
+  if (!isoYMD || isoYMD.length !== 10) return isoYMD || "";
+  const [y,m,d] = isoYMD.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+// Events
+addBookForm.addEventListener("submit", e => {
+  e.preventDefault();
+  const title = document.getElementById("title").value.trim();
+  const author = document.getElementById("author").value.trim();
+  const category = document.getElementById("category").value.trim();
+
+  if (!title || !author || !category) return;
+
+  state.books.push({
+    id: uid(),
+    title, author, category,
+    isLoaned: false,
+    borrower: "",
+    notes: "",
+    dueDate: "",
+    history: []
+  });
+  saveBooks();
+  addBookForm.reset();
+  document.getElementById("title").focus();
+});
+
+[q, statusFilter].forEach(el => el.addEventListener("input", render));
+
+resetBtn.addEventListener("click", () => {
+  if (confirm("¿Seguro que quieres borrar todos los datos locales?")) {
+    localStorage.removeItem(LS_KEY);
+    state.books = [];
+    render();
+  }
+});
+
+exportBtn.addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state.books, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "biblioteca.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+exportCsvBtn.addEventListener("click", () => {
+  const headers = ["Titulo","Autor","Categoria","Estado","Prestatario","FechaDevolucion","Observaciones"];
+  const lines = [headers.join(",")];
+  state.books.forEach(b => {
+    const estado = b.isLoaned ? (isOverdue(b.dueDate) ? "Vencido" : "Prestado") : "Disponible";
+    const row = [
+      escapeCsv(b.title),
+      escapeCsv(b.author),
+      escapeCsv(b.category),
+      escapeCsv(estado),
+      escapeCsv(b.borrower || ""),
+      escapeCsv(b.dueDate || ""),
+      escapeCsv(b.notes || "")
+    ].join(",");
+    lines.push(row);
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "biblioteca.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+function escapeCsv(v) {
+  v = (v ?? "").toString();
+  if (/[",\n]/.test(v)) return `"${v.replace(/"/g,'""')}"`;
+  return v;
+}
+
+importInput.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    if (!Array.isArray(json)) throw new Error("Formato no válido");
+    state.books = json.map(sanitizeBook);
+    saveBooks();
+  } catch (err) {
+    alert("No se pudo importar el JSON. Verifica el formato.");
+  } finally {
+    importInput.value = "";
+  }
+});
+
+clearAllBtn.addEventListener("click", () => {
+  q.value = "";
+  statusFilter.value = "all";
+  render();
+});
+
+printBtn.addEventListener("click", () => window.print());
+
+// Préstamo/Devolución
+function openLoanDialog(bookId) {
+  state.loanTargetId = bookId;
+  const b = state.books.find(x => x.id === bookId);
+  loanBookTitle.textContent = `Libro: ${b?.title || ""} — Autor: ${b?.author || ""}`;
+  borrowerInput.value = "";
+  notesInput.value = "";
+  dueInput.value = "";
+  state.loanDialog.showModal();
+}
+
+confirmLoanBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  const borrower = borrowerInput.value.trim();
+  const notes = notesInput.value.trim();
+  const due = (dueInput.value || "").trim();
+  if (!borrower) return;
+
+  const b = state.books.find(x => x.id === state.loanTargetId);
+  if (!b) return;
+
+  if (b.isLoaned) {
+    alert("Este libro ya está prestado.");
+    return;
+  }
+
+  b.isLoaned = true;
+  b.borrower = borrower;
+  b.notes = notes;
+  b.dueDate = due;
+  b.history.push({ type: "loan", at: new Date().toISOString(), by: borrower, dueDate: due, notes });
+  saveBooks();
+  state.loanDialog.close();
+});
+
+function returnBook(bookId) {
+  const b = state.books.find(x => x.id === bookId);
+  if (!b) return;
+  if (!b.isLoaned) {
+    alert("Este libro ya está disponible.");
+    return;
+  }
+  b.isLoaned = false;
+  b.history.push({ type: "return", at: new Date().toISOString(), by: b.borrower });
+  b.borrower = "";
+  b.notes = "";
+  b.dueDate = "";
+  saveBooks();
+}
+
+// Editar / Eliminar
+function openEditDialog(book) {
+  editId.value = book.id;
+  editTitle.value = book.title;
+  editAuthor.value = book.author;
+  editCategory.value = book.category;
+  state.editDialog.showModal();
+}
+
+confirmEditBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  const id = editId.value;
+  const b = state.books.find(x => x.id === id);
+  if (!b) return;
+
+  const t = editTitle.value.trim();
+  const a = editAuthor.value.trim();
+  const c = editCategory.value.trim();
+  if (!t || !a || !c) return;
+
+  b.title = t;
+  b.author = a;
+  b.category = c;
+  saveBooks();
+  state.editDialog.close();
+});
+
+function deleteBook(bookId) {
+  const b = state.books.find(x => x.id === bookId);
+  const name = b ? `“${b.title}”` : "el libro";
+  if (confirm(`¿Eliminar ${name}? Esta acción no se puede deshacer.`)) {
+    state.books = state.books.filter(x => x.id !== bookId);
+    saveBooks();
+  }
+}
+
+// Inicial
+render();
